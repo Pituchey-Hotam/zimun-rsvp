@@ -1,29 +1,55 @@
-import functions_framework
-from pywa import WhatsApp, utils, types
-from dotenv import load_dotenv
+import logging
 import os
+import functions_framework
+import google.auth
+from pywa import WhatsApp, utils
+from dotenv import load_dotenv
+
+from guests import GuestsManager
+from bot import RSVPBot
 
 load_dotenv()
+# Configuration
+WABA_PHONE_ID = os.getenv("WABA_PHONE_ID")
+WABA_TOKEN = os.getenv("WABA_TOKEN")
+WABA_WEBHOOK_VERIFY = os.getenv("WABA_WEBHOOK_VERIFY")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 
 wa = WhatsApp(
-    phone_id=os.environ['WABA_PHONE_ID'],  # The phone id you got from the API Setup
-    token=os.environ['WABA_TOKEN'],  # The token you got from the API Setup,
+    phone_id=WABA_PHONE_ID,
+    token=WABA_TOKEN,
     server=None,
-    verify_token=os.environ['WABA_WEBHOOK_VERIFY']
+    verify_token=WABA_WEBHOOK_VERIFY
 )
 
-@wa.on_message
-def hello(_: WhatsApp, msg: types.Message):
-    msg.react('👋')
-    msg.reply(f'Hello {msg.from_user.name}!')
+credentials, project_id = google.auth.default(
+    scopes=[
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
+)
+
+guests = GuestsManager(
+    credentials,
+    SPREADSHEET_ID
+)
+
+logging.info(guests.get_all_guests())
+
+# Initialize bot
+bot = RSVPBot(guests, wa)
 
 @functions_framework.http
 def waba_webhook(request):
     if request.method == "GET":
-        return wa.webhook_challenge_handler(
-            vt=request.args.get(utils.HUB_VT),
-            ch=request.args.get(utils.HUB_CH),
-        )
+        if request.path == "/send_invites":
+            bot.send_invitations()
+            return "Sent"
+        else:
+            return wa.webhook_challenge_handler(
+                vt=request.args.get(utils.HUB_VT),
+                ch=request.args.get(utils.HUB_CH),
+            )
     elif request.method == "POST":
         return wa.webhook_update_handler(
             update=request.data,
