@@ -120,7 +120,7 @@ class GuestsManager:
             Guest object if found, None otherwise
         """
         try:
-            logging.info(f"Getting guest for phone number {phone}")
+            logging.debug(f"Getting guest for phone number {phone}")
             all_rows = self.sheet.get_all_values()[1:]  # Skip header row
             normalized_phone = self._normalize_phone(phone)
             
@@ -169,7 +169,7 @@ class GuestsManager:
         Returns:
             Guest object
         """
-        logging.info(f"Getting guest at row {row_id}")
+        logging.debug(f"Getting guest at row {row_id}")
         try:
             row_values = self.sheet.row_values(row_id)
             return self._row_to_guest(row_values, row_id)
@@ -198,7 +198,7 @@ class GuestsManager:
         Returns:
             bool: True if successful, False otherwise
         """
-        logging.info(f"Updating invitation state for row {row_index} to {state}")
+        logging.debug(f"Updating invitation state for row {row_index} to {state}")
         try:
             guest = self.get_guest_by_row(row_index)
             if not guest:
@@ -231,7 +231,7 @@ class GuestsManager:
         Returns:
             bool: True if successful, False otherwise
         """
-        logging.info(f"Updating response status for row {row_index} to {status}")
+        logging.debug(f"Updating response status for row {row_index} to {status}")
         try:
             guest = self.get_guest_by_row(row_index)
             if not guest:

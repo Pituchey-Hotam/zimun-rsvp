@@ -2,11 +2,16 @@ import logging
 import os
 import functions_framework
 import google.auth
+import google.cloud.logging
+
 from pywa import WhatsApp, utils
 from dotenv import load_dotenv
 
 from guests import GuestsManager
 from bot import RSVPBot
+
+client = google.cloud.logging.Client()
+client.setup_logging(log_level = logging.DEBUG)
 
 load_dotenv()
 # Configuration
@@ -34,13 +39,14 @@ guests = GuestsManager(
     SPREADSHEET_ID
 )
 
-logging.info(guests.get_all_guests())
+logging.debug(guests.get_all_guests())
 
 # Initialize bot
 bot = RSVPBot(guests, wa)
 
 @functions_framework.http
 def waba_webhook(request):
+    logging.debug(f"{request.method} {request.path} <{request.data.decode("utf8")}>")
     if request.method == "GET":
         if request.path == "/send_invites":
             bot.send_invitations()

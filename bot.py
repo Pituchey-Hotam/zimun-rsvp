@@ -5,10 +5,6 @@ from pywa.types import Message, CallbackButton, Button, MessageStatus, MessageSt
 from guests import GuestsManager, ResponseStatus, InvitationState, Guest
 from consts import *
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 
 class RSVPBot:
     """WhatsApp RSVP Bot"""

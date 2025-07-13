@@ -2,3 +2,4 @@ functions-framework==3.*
 pywa==2.11.*
 dotenv==0.9.9
 gspread==6.2.*
+google-cloud-logging==3.12.*
