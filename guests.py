@@ -23,6 +23,7 @@ class Guest:
     """Data class representing a guest"""
     first_name: str
     last_name: str
+    display_name: str
     phone_number: str
     should_send: bool = False
     invitation_state: Optional[InvitationState] = None
@@ -35,6 +36,7 @@ class Columns(Enum):
     first_name = 0
     last_name = 1
     phone_number = 6
+    display_name = 7
     should_send = 8
     invitation_state = 9
     response = 10

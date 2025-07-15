@@ -1,6 +1,6 @@
 import logging
 from pywa import WhatsApp
-from pywa.types import Message, CallbackButton, Button, MessageStatus, MessageStatusType
+from pywa.types import Message, CallbackButton, Button, MessageStatus, MessageStatusType, Template
 
 from guests import GuestsManager, ResponseStatus, InvitationState, Guest
 from consts import *
@@ -167,49 +167,50 @@ class RSVPBot:
             sent_count = 0
                         
             for guest in uninvited_guests:
-                display_name = f"{guest.first_name} {guest.last_name}"
-                logging.info(f"Sending invitation to {display_name}: {guest}")
+                full_name = f"{guest.first_name} {guest.last_name}"
+                logging.info(f"Sending invitation to {full_name}: {guest}")
                 try:
                     # Send invitation message
-
-                    # self.wa.send_template(
-                    #     to=guest.phone_number,
-                    #     template=Template(
-                    #         self.template_name,
-                    #         language=Template.Language.HEBREW,
-                    #         body=[
-                    #             Template.TextValue(display_name),
-                    #             Template.TextValue(INVITATION_DATE_AND_VENUE),
-                    #             Template.TextValue(INVITATION_EMOJI)
-                    #         ],
-                    #         buttons=[
-                    #             Template.QuickReplyButtonData(ResponseStatus.COMING.name),
-                    #             Template.QuickReplyButtonData(ResponseStatus.NOT_COMING.name),
-                    #             Template.QuickReplyButtonData(ResponseStatus.UNSURE.name)
-                    #         ]
-                    #     )
-                    # )
-                    
-                    self.wa.send_message(
+                    sent_message = self.wa.send_template(
                         to=guest.phone_number,
-                        text=INVITATION_TEXT.format(
-                            name=display_name,
-                            date_and_venue=INVITATION_DATE_AND_VENUE,
-                            emoji=INVITATION_EMOJI
+                        template=Template(
+                            self.template_name,
+                            language=Template.Language.HEBREW,
+                            header=Template.Image("https://storage.googleapis.com/zimun-rsvp/invitation_sample.png"),
+                            body=[
+                                Template.TextValue(guest.display_name, "name_and_greeting"),
+                                Template.TextValue(INVITATION_DATE_AND_VENUE, "date_and_venue"),
+                                Template.TextValue(INVITATION_EMOJI, "emoji")
+                            ],
+                            buttons=[
+                                Template.QuickReplyButtonData(ResponseStatus.COMING.name),
+                                Template.QuickReplyButtonData(ResponseStatus.NOT_COMING.name),
+                                Template.QuickReplyButtonData(ResponseStatus.UNSURE.name)
+                            ]
                         ),
-                        header="",
-                        buttons=self.invitiation_buttons,
                         tracker="INVITATION"
                     )
+                    
+                    # sent_message = self.wa.send_image(
+                    #     to=guest.phone_number,
+                    #     image="https://storage.googleapis.com/zimun-rsvp/invitation_sample.png",
+                    #     caption=INVITATION_TEXT.format(
+                    #         name=display_name,
+                    #         date_and_venue=INVITATION_DATE_AND_VENUE,
+                    #         emoji=INVITATION_EMOJI
+                    #     ),
+                    #     buttons=self.invitiation_buttons,
+                    #     tracker="INVITATION"
+                    # )
                     
                     # Update invitation sent status
                     self.guests.update_invitation_state(guest.row_index, InvitationState.PROCESSED)
                     sent_count += 1
                     
-                    logging.info(f"Sent invitation to {display_name} at {guest.phone_number}")
+                    logging.info(f"Sent invitation to {full_name} at {guest.phone_number} <{sent_message.id}>")
                     
                 except Exception as e:
-                    logging.exception(f"Failed to send invitation to {display_name}")
+                    logging.exception(f"Failed to send invitation to {full_name}")
             
             logging.info(f"Sent {sent_count} invitations")
             return sent_count
