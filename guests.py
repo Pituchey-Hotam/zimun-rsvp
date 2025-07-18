@@ -36,11 +36,11 @@ class Columns(Enum):
     first_name = 0
     last_name = 1
     phone_number = 6
-    display_name = 7
-    should_send = 8
-    invitation_state = 9
-    response = 10
-    expected_guests = 11
+    display_name = 8
+    should_send = 9
+    invitation_state = 10
+    response = 11
+    expected_guests = 12
 
 class GuestsManager:
     """Handles Google Sheets operations for RSVP management"""

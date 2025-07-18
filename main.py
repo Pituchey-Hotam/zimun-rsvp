@@ -64,6 +64,9 @@ else:
     def waba_webhook(request):
         logging.debug(f"{request.method} {request.path} <{request.data.decode("utf8")}>")
         if request.method == "GET":
+            if request.path == "/stage_invites":
+                guests = bot.guests.get_uninvited_guests()
+                return "<br/>".join([g.display_name for g in guests])
             if request.path == "/send_invites":
                 bot.send_invitations()
                 return "Sent"
