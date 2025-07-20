@@ -91,7 +91,7 @@ class RSVPBot:
             if not guest:
                 return
             
-            if not guest.whatsapp_name:
+            if not guest.whatsapp_name and status.from_user.name:
                 self.guests.update_whatsapp_name(guest.row_index, status.from_user.name)
 
             if status.tracker == "INVITATION":
