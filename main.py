@@ -17,6 +17,7 @@ WABA_PHONE_ID = os.getenv("WABA_PHONE_ID")
 WABA_TOKEN = os.getenv("WABA_TOKEN")
 WABA_WEBHOOK_VERIFY = os.getenv("WABA_WEBHOOK_VERIFY")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+WORKSHEET_ID = os.getenv("WORKSHEET_ID")
 INVITATION_URL = os.getenv("INVITATION_URL")
 LOCAL_TESTING = os.getenv("LOCAL_TESTING")
 
@@ -50,7 +51,8 @@ wa = WhatsApp(
 
 guests = GuestsManager(
     credentials,
-    SPREADSHEET_ID
+    SPREADSHEET_ID,
+    WORKSHEET_ID
 )
 
 logging.debug(guests.get_all_guests())

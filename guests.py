@@ -47,7 +47,7 @@ class Columns(Enum):
 class GuestsManager:
     """Handles Google Sheets operations for RSVP management"""
     
-    def __init__(self, credentials: Credentials, spreadsheet_id: str):
+    def __init__(self, credentials: Credentials, spreadsheet_id: str, worksheet_id: str):
         """
         Initialize Google Sheets RSVP Manager
         
@@ -57,6 +57,7 @@ class GuestsManager:
         """
         self.credentials = credentials
         self.spreadsheet_id = spreadsheet_id
+        self.worksheet_id = worksheet_id
         
         
         # Initialize connection
@@ -79,7 +80,7 @@ class GuestsManager:
         try:
             
             self.gc = gspread.authorize(self.credentials)
-            self.sheet = self.gc.open_by_key(self.spreadsheet_id).sheet1
+            self.sheet = self.gc.open_by_key(self.spreadsheet_id).get_worksheet_by_id(self.worksheet_id)
                         
         except Exception as e:
             logging.exception(f"Failed to initialize Google Sheets connection")
