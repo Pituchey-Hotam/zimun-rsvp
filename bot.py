@@ -212,10 +212,9 @@ class RSVPBot:
                     # )
                     
                     # Update invitation sent status
+                    logging.info(f"Sent invitation to {full_name} at {guest.phone_number} <{sent_message.id}>")
                     self.guests.update_invitation_state(guest, InvitationState.PROCESSED)
                     sent_count += 1
-                    
-                    logging.info(f"Sent invitation to {full_name} at {guest.phone_number} <{sent_message.id}>")
                     
                 except Exception as e:
                     logging.exception(f"Failed to send invitation to {full_name}")
