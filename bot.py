@@ -13,9 +13,11 @@ class RSVPBot:
                  guests: GuestsManager,
                  wa: WhatsApp,
                  invitation_url: str,
+                 group_invite: str,
                  template_name: str = "rsvp_invitation"):
         self.wa = wa
         self.invitation_url = invitation_url
+        self.group_invite = group_invite
         self.template_name = template_name
         self.guests = guests
         
@@ -126,7 +128,7 @@ class RSVPBot:
             
             self.wa.send_message(
                 to=msg.from_user.wa_id,
-                text=RESPONSE_GUEST_COUNT
+                text=RESPONSE_GUEST_COUNT+self.group_invite
             )
             
         except ValueError:
