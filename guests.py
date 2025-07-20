@@ -12,6 +12,7 @@ class InvitationState(Enum):
     SENT = "✔"
     RECEIVED = "✔✔"
     READ = "☑☑"
+    ERROR = "❌"
 
 class ResponseStatus(Enum):
     COMING = "מגיע"
@@ -132,7 +133,7 @@ class GuestsManager:
             for i, row in enumerate(all_rows):
                 if len(row) > Columns.phone_number.value:
                     row_phone = self._normalize_phone(row[Columns.phone_number.value])
-                    if row_phone == phone:
+                    if row_phone == normalized_phone:
                         guest = self._row_to_guest(row, i+2)  # +2 for header and 0-indexing
                         if guest:
                             return guest
@@ -192,7 +193,7 @@ class GuestsManager:
         all_guests = self.get_all_guests()
         return [guest for guest in all_guests if guest.should_send and not guest.invitation_state]
     
-    def update_invitation_state(self, row_index: int, state: InvitationState) -> bool:
+    def update_invitation_state(self, guest: Guest, state: InvitationState) -> bool:
         """
         Update invitation status for a guest
         
@@ -203,13 +204,8 @@ class GuestsManager:
         Returns:
             bool: True if successful, False otherwise
         """
-        logging.debug(f"Updating invitation state for row {row_index} to {state}")
+        logging.debug(f"Updating invitation state for row {guest.row_index} to {state}")
         try:
-            guest = self.get_guest_by_row(row_index)
-            if not guest:
-                logging.warning(f"Guest not found for row: {row_index}")
-                return False
-            
             self.sheet.update_cell(
                 guest.row_index, 
                 Columns.invitation_state.value + 1,
@@ -223,7 +219,7 @@ class GuestsManager:
             logging.exception(f"Error updating invitation status")
             return False
         
-    def update_response_status(self, row_index: int, status: ResponseStatus, expected_guests: Optional[int] = None) -> bool:
+    def update_response_status(self, guest: Guest, status: ResponseStatus, expected_guests: Optional[int] = None) -> bool:
         """
         Update guest response status and expected guests
         
@@ -235,13 +231,8 @@ class GuestsManager:
         Returns:
             bool: True if successful, False otherwise
         """
-        logging.debug(f"Updating response status for row {row_index} to {status}")
+        logging.debug(f"Updating response status for row {guest.row_index} to {status}")
         try:
-            guest = self.get_guest_by_row(row_index)
-            if not guest:
-                logging.warning(f"Guest not found for row: {row_index}")
-                return False
-            
             # Update response status
             self.sheet.update_cell(
                 guest.row_index, 

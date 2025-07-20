@@ -60,7 +60,7 @@ class RSVPBot:
 
             # Update status
             self.guests.update_response_status(
-                guest.row_index,
+                guest,
                 response_status
             )
             
@@ -90,19 +90,17 @@ class RSVPBot:
             guest = self.guests.get_guest_by_phone(status.from_user.wa_id)
             if not guest:
                 return
-            
-            if not guest.whatsapp_name and status.from_user.name:
-                self.guests.update_whatsapp_name(guest.row_index, status.from_user.name)
 
             if status.tracker == "INVITATION":
                 if status.status == MessageStatusType.SENT:
-                    self.guests.update_invitation_state(guest.row_index, InvitationState.SENT)
+                    self.guests.update_invitation_state(guest, InvitationState.SENT)
                 elif status.status == MessageStatusType.DELIVERED:
-                    self.guests.update_invitation_state(guest.row_index, InvitationState.RECEIVED)
+                    self.guests.update_invitation_state(guest, InvitationState.RECEIVED)
                 elif status.status == MessageStatusType.READ:
-                    self.guests.update_invitation_state(guest.row_index, InvitationState.READ)
+                    self.guests.update_invitation_state(guest, InvitationState.READ)
                 elif status.status == MessageStatusType.FAILED:
                     logging.error(f"A message delivery has failed for {guest}")
+                    self.guests.update_invitation_state(guest, InvitationState.ERROR)
 
         except Exception as e:
             logging.exception(f"Error handling message status")
@@ -121,7 +119,7 @@ class RSVPBot:
             
             # Update guest count
             self.guests.update_response_status(
-                guest.row_index,
+                guest,
                 ResponseStatus.COMING, 
                 expected_guests=guest_count
             )
@@ -148,8 +146,11 @@ class RSVPBot:
                     text=UNKNOWN_GUEST_RESPONSE
                 )
                 return
+
+            if not guest.whatsapp_name and msg.from_user.name:
+                self.guests.update_whatsapp_name(guest.row_index, msg.from_user.name)
             
-            if guest.invitation_state != None and msg.text.isnumeric():
+            if guest.invitation_state != None and msg.text and msg.text.isnumeric():
                 self._handle_guest_count_response(guest, msg)
             else:
                 self.wa.send_message(
@@ -209,7 +210,7 @@ class RSVPBot:
                     # )
                     
                     # Update invitation sent status
-                    self.guests.update_invitation_state(guest.row_index, InvitationState.PROCESSED)
+                    self.guests.update_invitation_state(guest, InvitationState.PROCESSED)
                     sent_count += 1
                     
                     logging.info(f"Sent invitation to {full_name} at {guest.phone_number} <{sent_message.id}>")
