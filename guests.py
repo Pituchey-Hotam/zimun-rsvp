@@ -25,6 +25,7 @@ class Guest:
     last_name: str
     display_name: str
     phone_number: str
+    whatsapp_name: str
     should_send: bool = False
     invitation_state: Optional[InvitationState] = None
     response: Optional[ResponseStatus] = None
@@ -41,6 +42,7 @@ class Columns(Enum):
     invitation_state = 10
     response = 11
     expected_guests = 12
+    whatsapp_name = 13
 
 class GuestsManager:
     """Handles Google Sheets operations for RSVP management"""
@@ -218,7 +220,6 @@ class GuestsManager:
             
         except Exception as e:
             logging.exception(f"Error updating invitation status")
-            raise
             return False
         
     def update_response_status(self, row_index: int, status: ResponseStatus, expected_guests: Optional[int] = None) -> bool:
@@ -260,4 +261,20 @@ class GuestsManager:
             
         except Exception as e:
             logging.error(f"Error updating response status")
+            return False    
+    
+    def update_whatsapp_name(self, row_index: int, whatsapp_name: str) -> bool:
+        logging.debug(f"Updating whatsapp name for row {row_index} to {whatsapp_name}")
+        try:
+            self.sheet.update_cell(
+                row_index,
+                Columns.whatsapp_name.value + 1,
+                whatsapp_name
+            )
+            
+            logging.info(f"Updating whatsapp name for row {row_index} to {whatsapp_name}")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error updating whatsapp name")
             return False    

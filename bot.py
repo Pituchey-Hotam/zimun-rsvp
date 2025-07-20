@@ -12,8 +12,10 @@ class RSVPBot:
     def __init__(self, 
                  guests: GuestsManager,
                  wa: WhatsApp,
+                 invitation_url: str,
                  template_name: str = "rsvp_invitation"):
         self.wa = wa
+        self.invitation_url = invitation_url
         self.template_name = template_name
         self.guests = guests
         
@@ -89,6 +91,9 @@ class RSVPBot:
             if not guest:
                 return
             
+            if not guest.whatsapp_name:
+                self.guests.update_whatsapp_name(guest.row_index, status.from_user.name)
+
             if status.tracker == "INVITATION":
                 if status.status == MessageStatusType.SENT:
                     self.guests.update_invitation_state(guest.row_index, InvitationState.SENT)
@@ -98,7 +103,7 @@ class RSVPBot:
                     self.guests.update_invitation_state(guest.row_index, InvitationState.READ)
                 elif status.status == MessageStatusType.FAILED:
                     logging.error(f"A message delivery has failed for {guest}")
-                
+
         except Exception as e:
             logging.exception(f"Error handling message status")
     
@@ -176,7 +181,7 @@ class RSVPBot:
                         template=Template(
                             self.template_name,
                             language=Template.Language.HEBREW,
-                            header=Template.Image("https://storage.googleapis.com/zimun-rsvp/invitation_sample.png"),
+                            header=Template.Image(self.invitation_url),
                             body=[
                                 Template.TextValue(guest.display_name, "name_and_greeting"),
                                 Template.TextValue(INVITATION_DATE_AND_VENUE, "date_and_venue"),

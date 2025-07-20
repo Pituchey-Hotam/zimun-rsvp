@@ -17,6 +17,7 @@ WABA_PHONE_ID = os.getenv("WABA_PHONE_ID")
 WABA_TOKEN = os.getenv("WABA_TOKEN")
 WABA_WEBHOOK_VERIFY = os.getenv("WABA_WEBHOOK_VERIFY")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+INVITATION_URL = os.getenv("INVITATION_URL")
 LOCAL_TESTING = os.getenv("LOCAL_TESTING")
 
 if LOCAL_TESTING:
@@ -55,7 +56,7 @@ guests = GuestsManager(
 logging.debug(guests.get_all_guests())
 
 # Initialize bot
-bot = RSVPBot(guests, wa)
+bot = RSVPBot(guests, wa, INVITATION_URL)
 
 if LOCAL_TESTING:
     bot.send_invitations()
