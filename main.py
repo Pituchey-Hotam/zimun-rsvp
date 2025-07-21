@@ -20,6 +20,7 @@ SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 WORKSHEET_ID = os.getenv("WORKSHEET_ID")
 INVITATION_URL = os.getenv("INVITATION_URL")
 GROUP_INVITE = os.getenv("GROUP_INVITE")
+TEMPLATE_ID = os.getenv("TEMPLATE_ID")
 LOCAL_TESTING = os.getenv("LOCAL_TESTING")
 
 if LOCAL_TESTING:
@@ -56,12 +57,11 @@ guests = GuestsManager(
     WORKSHEET_ID
 )
 
-logging.debug(guests.get_all_guests())
-
 # Initialize bot
-bot = RSVPBot(guests, wa, INVITATION_URL, GROUP_INVITE)
+bot = RSVPBot(guests, wa, INVITATION_URL, GROUP_INVITE, TEMPLATE_ID)
 
 if LOCAL_TESTING:
+    logging.debug(guests.get_all_guests())
     bot.send_invitations()
 else:
     @functions_framework.http
@@ -72,7 +72,8 @@ else:
                 guests = bot.guests.get_uninvited_guests()
                 return "<br/>".join([g.display_name for g in guests])
             if request.path == "/send_invites":
-                bot.send_invitations()
+                delay = request.args.get('delay', type=int, default=0)
+                bot.send_invitations(delay)
                 return "Sent"
             else:
                 return wa.webhook_challenge_handler(
