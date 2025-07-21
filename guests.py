@@ -264,7 +264,7 @@ class GuestsManager:
                 whatsapp_name
             )
             
-            logging.info(f"Updating whatsapp name for row {row_index} to {whatsapp_name}")
+            logging.info(f"Updated whatsapp name for row {row_index} to {whatsapp_name}")
             return True
             
         except Exception as e:

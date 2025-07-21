@@ -164,7 +164,7 @@ class RSVPBot:
         except Exception as e:
             logging.exception(f"Error handling general message")
     
-    def send_invitations(self, delay: int = 0) -> int:
+    def send_invitations(self, limit: int = 0) -> int:
         """
         Send invitations to all guests who haven't received one yet
         
@@ -173,9 +173,11 @@ class RSVPBot:
         """
         try:
             uninvited_guests = self.guests.get_uninvited_guests()
+            if limit:
+                uninvited_guests = uninvited_guests[:limit]
             sent_count = 0
 
-            logging.info(f"Sending invites with delay {delay}")
+            logging.info(f"Sending invites ({limit})")
                         
             for guest in uninvited_guests:
                 full_name = f"{guest.first_name} {guest.last_name}"
@@ -218,8 +220,6 @@ class RSVPBot:
                     logging.info(f"Sent invitation to {full_name} at {guest.phone_number} <{sent_message.id}>")
                     self.guests.update_invitation_state(guest, InvitationState.PROCESSED)
                     sent_count += 1
-
-                    time.sleep(delay)
                     
                 except Exception as e:
                     logging.exception(f"Failed to send invitation to {full_name}")

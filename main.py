@@ -68,12 +68,14 @@ else:
     def waba_webhook(request):
         logging.debug(f"{request.method} {request.path} <{request.data.decode("utf8")}>")
         if request.method == "GET":
+            limit = request.args.get('limit', type=int, default=0)
             if request.path == "/stage_invites":
                 guests = bot.guests.get_uninvited_guests()
-                return "<br/>".join([g.display_name for g in guests])
+                return  "<br/>".join([g.display_name for g in guests[:limit]]) + \
+                        "<br/><br/><br/>" + \
+                        "<br/>".join([g.display_name for g in guests[limit:]])
             if request.path == "/send_invites":
-                delay = request.args.get('delay', type=int, default=0)
-                bot.send_invitations(delay)
+                bot.send_invitations(limit)
                 return "Sent"
             else:
                 return wa.webhook_challenge_handler(
