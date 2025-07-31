@@ -7,7 +7,7 @@ import re
 import gspread
 from google.oauth2.service_account import Credentials
 
-class InvitationState(Enum):
+class SendState(Enum):
     PROCESSED = "⏱"
     SENT = "✔"
     RECEIVED = "✔✔"
@@ -28,10 +28,16 @@ class Guest:
     phone_number: str
     whatsapp_name: str
     should_send: bool = False
-    invitation_state: Optional[InvitationState] = None
+    invitation_state: Optional[SendState] = None
     response: Optional[ResponseStatus] = None
     expected_guests: Optional[int] = None
+    should_send_reminder: bool = False
+    reminder_state: Optional[SendState] = None
     row_index: Optional[int] = None
+
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
 
 # Column mappings
 class Columns(Enum):
@@ -44,6 +50,8 @@ class Columns(Enum):
     response = 11
     expected_guests = 12
     whatsapp_name = 13
+    should_send_reminder = 15
+    reminder_state = 16
 
 class GuestsManager:
     """Handles Google Sheets operations for RSVP management"""
@@ -59,7 +67,6 @@ class GuestsManager:
         self.credentials = credentials
         self.spreadsheet_id = spreadsheet_id
         self.worksheet_id = worksheet_id
-        
         
         # Initialize connection
         self._init_connection()
@@ -103,7 +110,9 @@ class GuestsManager:
 
             guest_dict['should_send'] = guest_dict['should_send'] == 'TRUE'
             guest_dict['phone_number'] = self._normalize_phone(guest_dict['phone_number'])
-            guest_dict['invitation_state'] = InvitationState(guest_dict['invitation_state']) if guest_dict['invitation_state'] else None
+            guest_dict['invitation_state'] = SendState(guest_dict['invitation_state']) if guest_dict['invitation_state'] else None
+            guest_dict['should_send_reminder'] = guest_dict['should_send_reminder'] == 'TRUE'
+            guest_dict['reminder_state'] = SendState(guest_dict['reminder_state']) if guest_dict['reminder_state'] else None
             guest_dict['response'] = ResponseStatus(guest_dict['response']) if guest_dict['response'] else None
             guest_dict['expected_guests'] = int(guest_dict['expected_guests']) if guest_dict['expected_guests'] else None
 
@@ -192,19 +201,13 @@ class GuestsManager:
         """
         all_guests = self.get_all_guests()
         return [guest for guest in all_guests if guest.should_send and not guest.invitation_state]
+
+    def get_unreminded_guests(self) -> List[Guest]:
+        all_guests = self.get_all_guests()
+        return [guest for guest in all_guests if guest.should_send_reminder and not guest.reminder_state]
     
-    def update_invitation_state(self, guest: Guest, state: InvitationState) -> bool:
-        """
-        Update invitation status for a guest
-        
-        Args:
-            phone: Guest's phone number
-            sent: Whether invitation was sent
-            
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        logging.debug(f"Updating invitation state for row {guest.row_index} to {state}")
+    def update_invitation_state(self, guest: Guest, state: SendState) -> bool:
+        logging.debug(f"Updating invitation state for {guest.full_name} ({guest.row_index}) to {state}")
         try:
             self.sheet.update_cell(
                 guest.row_index, 
@@ -212,11 +215,27 @@ class GuestsManager:
                 state.value
             )
             
-            logging.info(f"Updated invitation sent status for {guest.first_name} {guest.last_name} to {state}")
+            logging.info(f"Updated invitation sent status for {guest.full_name} ({guest.row_index}) to {state}")
             return True
             
         except Exception as e:
             logging.exception(f"Error updating invitation status")
+            return False
+    
+    def update_reminder_state(self, guest: Guest, state: SendState) -> bool:
+        logging.debug(f"Updating reminder state for {guest.full_name} ({guest.row_index}) to {state}")
+        try:
+            self.sheet.update_cell(
+                guest.row_index, 
+                Columns.reminder_state.value + 1,
+                state.value
+            )
+            
+            logging.info(f"Updated reminder sent status for {guest.full_name} ({guest.row_index}) to {state}")
+            return True
+            
+        except Exception as e:
+            logging.exception(f"Error updating reminder status")
             return False
         
     def update_response_status(self, guest: Guest, status: ResponseStatus, expected_guests: Optional[int] = None) -> bool:
@@ -248,7 +267,7 @@ class GuestsManager:
                     expected_guests
                 )
             
-            logging.info(f"Updated response for {guest.first_name} {guest.last_name}: {status}" + f" ({expected_guests})" if expected_guests else "")
+            logging.info(f"Updated response for {guest.full_name}: {status}" + f" ({expected_guests})" if expected_guests else "")
             return True
             
         except Exception as e:

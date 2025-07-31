@@ -3,7 +3,7 @@ import time
 from pywa import WhatsApp
 from pywa.types import Message, CallbackButton, Button, MessageStatus, MessageStatusType, Template
 
-from guests import GuestsManager, ResponseStatus, InvitationState, Guest
+from guests import GuestsManager, ResponseStatus, SendState, Guest
 from consts import *
 
 
@@ -15,11 +15,13 @@ class RSVPBot:
                  wa: WhatsApp,
                  invitation_url: str,
                  group_invite: str,
-                 template_name: str = "rsvp_invitation"):
+                 template_name: str = "rsvp_invitation",
+                 reminder_template_name: str = "rsvp_reminder"):
         self.wa = wa
         self.invitation_url = invitation_url
         self.group_invite = group_invite
         self.template_name = template_name
+        self.reminder_template_name = reminder_template_name
         self.guests = guests
         
         # Register message handlers
@@ -30,7 +32,12 @@ class RSVPBot:
             Button("לצערי לא", ResponseStatus.NOT_COMING.name),
             Button("עוד לא יודעים", ResponseStatus.UNSURE.name)
         ]
-            
+        self.template_buttons = [
+            Template.QuickReplyButtonData(ResponseStatus.COMING.name),
+            Template.QuickReplyButtonData(ResponseStatus.NOT_COMING.name),
+            Template.QuickReplyButtonData(ResponseStatus.UNSURE.name)
+        ]
+    
     def _register_handlers(self):
         """Register WhatsApp message handlers"""
 
@@ -94,16 +101,22 @@ class RSVPBot:
             if not guest:
                 return
 
+            update_func = None
             if status.tracker == "INVITATION":
+                update_func = self.guests.update_invitation_state
+            elif status.tracker == "REMINDER":
+                update_func = self.guests.update_reminder_state
+            
+            if update_func:
                 if status.status == MessageStatusType.SENT:
-                    self.guests.update_invitation_state(guest, InvitationState.SENT)
+                    update_func(guest, SendState.SENT)
                 elif status.status == MessageStatusType.DELIVERED:
-                    self.guests.update_invitation_state(guest, InvitationState.RECEIVED)
+                    update_func(guest, SendState.RECEIVED)
                 elif status.status == MessageStatusType.READ:
-                    self.guests.update_invitation_state(guest, InvitationState.READ)
+                    update_func(guest, SendState.READ)
                 elif status.status == MessageStatusType.FAILED:
                     logging.error(f"A message delivery has failed for {guest}")
-                    self.guests.update_invitation_state(guest, InvitationState.ERROR)
+                    update_func(guest, SendState.ERROR)
 
         except Exception as e:
             logging.exception(f"Error handling message status")
@@ -144,6 +157,7 @@ class RSVPBot:
         try:
             guest = self.guests.get_guest_by_phone(msg.from_user.wa_id)
             if not guest:
+                logging.warning(f"Received message from unknown number {msg.from_user.wa_id}: {msg.text}")
                 self.wa.send_message(
                     to=msg.from_user.wa_id,
                     text=UNKNOWN_GUEST_RESPONSE
@@ -156,6 +170,7 @@ class RSVPBot:
             if guest.invitation_state != None and msg.text and msg.text.isnumeric():
                 self._handle_guest_count_response(guest, msg)
             else:
+                logging.warning(f"Received unexpected message from {guest.full_name} ({guest.row_index}): {msg.text}")
                 self.wa.send_message(
                     to=msg.from_user.wa_id,
                     text=RESPONSE_UNKNOWN
@@ -163,68 +178,88 @@ class RSVPBot:
                 
         except Exception as e:
             logging.exception(f"Error handling general message")
+
+    def send_template(self, template: Template, tracker: str, guest: Guest) -> bool:
+        logging.debug(f"Sending template {tracker} to {guest.full_name}")
+        try:
+            sent_message = self.wa.send_template(
+                to=guest.phone_number,
+                template=template,
+                tracker=tracker
+            )
+            logging.info(f"Sent template to {guest.full_name} at {guest.phone_number} <{sent_message.id}>")
+            return True
+        except Exception as e:
+            logging.exception(f"Failed to send invitation to {guest.full_name}")
+        return False
     
     def send_invitations(self, limit: int = 0) -> int:
         """
         Send invitations to all guests who haven't received one yet
-        
-        Returns:
-            Number of invitations sent
         """
         try:
             uninvited_guests = self.guests.get_uninvited_guests()
             if limit:
                 uninvited_guests = uninvited_guests[:limit]
-            sent_count = 0
 
-            logging.info(f"Sending invites ({limit})")
-                        
-            for guest in uninvited_guests:
-                full_name = f"{guest.first_name} {guest.last_name}"
-                logging.info(f"Sending invitation to {full_name}: {guest}")
-                try:
-                    # Send invitation message
-                    sent_message = self.wa.send_template(
-                        to=guest.phone_number,
-                        template=Template(
-                            self.template_name,
-                            language=Template.Language.HEBREW,
-                            header=Template.Image(self.invitation_url),
-                            body=[
-                                Template.TextValue(guest.display_name, "name_and_greeting"),
-                                Template.TextValue(INVITATION_DATE_AND_VENUE, "date_and_venue"),
-                                Template.TextValue(INVITATION_EMOJI, "emoji")
-                            ],
-                            buttons=[
-                                Template.QuickReplyButtonData(ResponseStatus.COMING.name),
-                                Template.QuickReplyButtonData(ResponseStatus.NOT_COMING.name),
-                                Template.QuickReplyButtonData(ResponseStatus.UNSURE.name)
-                            ]
-                        ),
-                        tracker="INVITATION"
-                    )
-                    
-                    # sent_message = self.wa.send_image(
-                    #     to=guest.phone_number,
-                    #     image="https://storage.googleapis.com/zimun-rsvp/invitation_sample.png",
-                    #     caption=INVITATION_TEXT.format(
-                    #         name=display_name,
-                    #         date_and_venue=INVITATION_DATE_AND_VENUE,
-                    #         emoji=INVITATION_EMOJI
-                    #     ),
-                    #     buttons=self.invitiation_buttons,
-                    #     tracker="INVITATION"
-                    # )
-                    
-                    # Update invitation sent status
-                    logging.info(f"Sent invitation to {full_name} at {guest.phone_number} <{sent_message.id}>")
-                    self.guests.update_invitation_state(guest, InvitationState.PROCESSED)
-                    sent_count += 1
-                    
-                except Exception as e:
-                    logging.exception(f"Failed to send invitation to {full_name}")
+            logging.info(f"Sending invitations ({limit})")
+            sent_count = 0
             
-            logging.info(f"Sent {sent_count} invitations")
+            for guest in uninvited_guests:
+                logging.info(f"Sending invitation to {guest.full_name}: {guest}")
+                template = Template(
+                    self.template_name,
+                    language=Template.Language.HEBREW,
+                    header=Template.Image(self.invitation_url),
+                    body=[
+                        Template.TextValue(guest.display_name, "name_and_greeting"),
+                        Template.TextValue(INVITATION_DATE_AND_VENUE, "date_and_venue"),
+                        Template.TextValue(INVITATION_EMOJI, "emoji")
+                    ],
+                    buttons=self.template_buttons
+                )
+                
+                if self.send_template(template, "INVITATION", guest):
+                    self.guests.update_invitation_state(guest, SendState.PROCESSED)
+                    sent_count += 1
+
+            logging.info(f"Successfuly sent {sent_count} / {len(uninvited_guests)} invitations")
+            return sent_count
+            
+        except Exception as e:
+            logging.exception(f"Error sending invitations")
+            return 0
+        
+    def send_reminders(self, limit: int = 0) -> int:
+        """
+        Send invitations to all guests who haven't received one yet
+        """
+        try:
+            unreminded_guests = self.guests.get_unreminded_guests()
+            if limit:
+                unreminded_guests = unreminded_guests[:limit]
+
+            logging.info(f"Sending reminders ({limit})")
+            sent_count = 0
+            
+            for guest in unreminded_guests:
+                logging.info(f"Sending reminder to {guest.full_name}")
+                template = Template(
+                    self.reminder_template_name,
+                    language=Template.Language.HEBREW,
+                    header=Template.Image(self.invitation_url),
+                    body=[
+                        Template.TextValue(guest.display_name, None),
+                        Template.TextValue(INVITATION_DATE_AND_VENUE, None),
+                    ],
+                    buttons=self.template_buttons
+                )
+                
+                if self.send_template(template, "REMINDER", guest):
+                    self.guests.update_reminder_state(guest, SendState.PROCESSED)
+                    sent_count += 1
+
+            logging.info(f"Successfuly sent {sent_count} / {len(unreminded_guests)} invitations")
             return sent_count
             
         except Exception as e:

@@ -21,6 +21,7 @@ WORKSHEET_ID = os.getenv("WORKSHEET_ID")
 INVITATION_URL = os.getenv("INVITATION_URL")
 GROUP_INVITE = os.getenv("GROUP_INVITE")
 TEMPLATE_ID = os.getenv("TEMPLATE_ID")
+REMINDER_TEMPLATE_ID = os.getenv("REMINDER_TEMPLATE_ID")
 LOCAL_TESTING = os.getenv("LOCAL_TESTING")
 
 if LOCAL_TESTING:
@@ -58,12 +59,17 @@ guests = GuestsManager(
 )
 
 # Initialize bot
-bot = RSVPBot(guests, wa, INVITATION_URL, GROUP_INVITE, TEMPLATE_ID)
+bot = RSVPBot(guests, wa, INVITATION_URL, GROUP_INVITE, TEMPLATE_ID, REMINDER_TEMPLATE_ID)
 
 if LOCAL_TESTING:
-    logging.debug(guests.get_all_guests())
-    bot.send_invitations()
+    # logging.debug(guests.get_all_guests())
+    bot.send_reminders()
 else:
+    def format_staging(guests, limit):
+        return  "<br/>".join([g.display_name for g in guests[:limit]]) + \
+                "<br/><br/><br/>" + \
+                "<br/>".join([g.display_name for g in guests[limit:]])
+
     @functions_framework.http
     def waba_webhook(request):
         logging.debug(f"{request.method} {request.path} <{request.data.decode("utf8")}>")
@@ -71,11 +77,15 @@ else:
             limit = request.args.get('limit', type=int, default=0)
             if request.path == "/stage_invites":
                 guests = bot.guests.get_uninvited_guests()
-                return  "<br/>".join([g.display_name for g in guests[:limit]]) + \
-                        "<br/><br/><br/>" + \
-                        "<br/>".join([g.display_name for g in guests[limit:]])
-            if request.path == "/send_invites":
+                return format_staging(guests, limit)
+            elif request.path == "/send_invites":
                 bot.send_invitations(limit)
+                return "Sent"
+            elif request.path == "/stage_reminders":
+                guests = bot.guests.get_unreminded_guests()
+                return format_staging(guests, limit)
+            elif request.path == "/send_reminders":
+                bot.send_reminders(limit)
                 return "Sent"
             else:
                 return wa.webhook_challenge_handler(
